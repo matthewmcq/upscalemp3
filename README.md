@@ -15,3 +15,4 @@ Converts an mp3 (lossy) file back into its uncompressed wav counterpart based on
 ## TODO:
 
 - Need a way to stitch arbitrarily-sized mp3 files back together after running the model on 1s segments.
+- Compensate for slight phase differences with an augmented Griffin-Lim algorithm.
