@@ -12,7 +12,4 @@ Converts an mp3 (lossy) file back into its uncompressed wav counterpart based on
 5. After training, the model predicts the missing spectrogram data from input mp3 audio segments and returns the ISTFT of the spectrogram
    encoded as a wav file at 44.1kHz.
 
-## TODO:
 
-- Need a way to stitch arbitrarily-sized mp3 files back together after running the model on 1s segments.
-- Compensate for slight phase differences with an augmented Griffin-Lim algorithm.
