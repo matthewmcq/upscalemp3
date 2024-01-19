@@ -12,7 +12,7 @@ if not os.path.exists('coeffs'):
 
 # CONSTANTS
 N_FFT = 2048
-HOP_LENGTH = 512
+HOP_LENGTH = 256
 
 # Preprocessing
 
