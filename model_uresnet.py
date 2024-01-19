@@ -13,16 +13,17 @@ def lsd():
         # Compute the mean of these norms
         mean_norm = tf.reduce_mean(norm_per_item)
 
-        # y_true_rad = (y_true[..., 1:2] * 2.0 - 1.0) * tf.constant(np.pi)  # Scale from [0,1] to [-π, π]
-        # y_pred_rad = (y_pred[..., 1:2] * 2.0 - 1.0) * tf.constant(np.pi)  # Scale from [0,1] to [-π, π]
 
-        # # Calculate the cyclic difference
-        # phase_diff = tf.math.atan2(tf.math.sin(y_true_rad - y_pred_rad), tf.math.cos(y_true_rad - y_pred_rad)) 
+        y_true_rad = (y_true[..., 1:2] * 2.0 - 1.0) * tf.constant(np.pi)  # Scale from [0,1] to [-π, π]
+        y_pred_rad = (y_pred[..., 1:2] * 2.0 - 1.0) * tf.constant(np.pi)  # Scale from [0,1] to [-π, π]
 
-        # # Compute mean squared error on the phase difference
-        # phase_loss = tf.reduce_mean(tf.square(phase_diff))
+        # Calculate the cyclic difference
+        phase_diff = tf.math.atan2(tf.math.sin(y_true_rad - y_pred_rad), tf.math.cos(y_true_rad - y_pred_rad)) 
 
-        return mean_norm # + (phase_loss / tf.constant(np.pi))
+        # Compute mean squared error on the phase difference
+        phase_loss = tf.reduce_mean(tf.square(phase_diff))
+
+        return mean_norm + (phase_loss/ tf.constant(np.pi))
     return loss
 
 def UResNet():
@@ -71,9 +72,9 @@ def UResNet():
     x_mag = tf.keras.layers.BatchNormalization()(x_mag)
 
     
-    # original_phase = tf.keras.layers.Conv2D(64, (3, 3), activation=None, padding='same')(original_phase)
-    # original_phase = tf.keras.layers.PReLU()(original_phase)
-    # original_phase = tf.keras.layers.BatchNormalization()(original_phase)
+    original_phase = tf.keras.layers.Conv2D(64, (3, 3), activation=None, padding='same')(original_phase)
+    original_phase = tf.keras.layers.PReLU()(original_phase)
+    original_phase = tf.keras.layers.BatchNormalization()(original_phase)
 
     # Encoder (Downsampling using strided convolutions) - Magnitude
     ## \/ \/ \/ THIS WAS CHANGED (TURNED ON) \/ \/ \/
@@ -96,23 +97,23 @@ def UResNet():
     
 
 
-    # # Encoder (Downsampling using strided convolutions) - Phase
+    # Encoder (Downsampling using strided convolutions) - Phase
 
-    # c1_phase = residual_encoder_block(original_phase, 64, strides=2)
-    # c2_phase = residual_encoder_block(c1_phase, 128, strides=2)
-    # c3_phase = residual_encoder_block(c2_phase, 256, strides=2)
-    # c4_phase = residual_encoder_block(c3_phase, 512, strides=2)
-    # # c5_phase = residual_encoder_block(c4_phase, 1024, strides=2)
+    c1_phase = residual_encoder_block(original_phase, 64, strides=2)
+    c2_phase = residual_encoder_block(c1_phase, 128, strides=2)
+    c3_phase = residual_encoder_block(c2_phase, 256, strides=2)
+    c4_phase = residual_encoder_block(c3_phase, 512, strides=2)
+    # c5_phase = residual_encoder_block(c4_phase, 1024, strides=2)
 
-    # # Decoder (Upsampling) - Phase
-    # # u5_phase = decoder_block(c5_phase, c4_phase, 1024)
-    # u4_phase = decoder_block(c4_phase, c3_phase, 512)
-    # u3_phase = decoder_block(u4_phase, c2_phase, 256)
-    # u2_phase = decoder_block(u3_phase, c1_phase, 128)
-    # u1_phase = decoder_block(u2_phase, original_phase, 64)
+    # Decoder (Upsampling) - Phase
+    # u5_phase = decoder_block(c5_phase, c4_phase, 1024)
+    u4_phase = decoder_block(c4_phase, c3_phase, 512)
+    u3_phase = decoder_block(u4_phase, c2_phase, 256)
+    u2_phase = decoder_block(u3_phase, c1_phase, 128)
+    u1_phase = decoder_block(u2_phase, original_phase, 64)
 
-    # # Output layer - Phase
-    # output_phase = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(u1_phase)
+    # Output layer - Phase
+    output_phase = tf.keras.layers.Conv2D(1, (1, 1), activation='sigmoid')(u1_phase)
 
     desired_shape = (1025, 87)
 
@@ -125,17 +126,17 @@ def UResNet():
                                                 target_width=desired_shape[1])
     )(output_mag)
 
-    # # Cropping the phase output
-    # output_phase_cropped = tf.keras.layers.Lambda(
-    #     lambda x: tf.image.crop_to_bounding_box(x,
-    #                                             offset_height=0,
-    #                                             offset_width=0,
-    #                                             target_height=desired_shape[0],
-    #                                             target_width=desired_shape[1])
-    # )(output_phase)
+    # Cropping the phase output
+    output_phase_cropped = tf.keras.layers.Lambda(
+        lambda x: tf.image.crop_to_bounding_box(x,
+                                                offset_height=0,
+                                                offset_width=0,
+                                                target_height=desired_shape[0],
+                                                target_width=desired_shape[1])
+    )(output_phase)
 
     # Then combine them
-    combined_output_cropped = tf.keras.layers.Concatenate(axis=-1)([output_mag_cropped, original_phase])
+    combined_output_cropped = tf.keras.layers.Concatenate(axis=-1)([output_mag_cropped, output_phase_cropped])
 
     model = tf.keras.models.Model(inputs=[inputs], outputs=[combined_output_cropped])
     model.compile(optimizer='adam', loss=lsd(), metrics=['accuracy',tf.keras.metrics.MeanSquaredError()])
