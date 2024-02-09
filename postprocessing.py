@@ -59,13 +59,7 @@ def modified_griffin_lim(magnitude_spectrogram, initial_phase, n_iter=200, phase
     print("Iterations complete")
     gl = librosa.istft(magnitude_spectrogram * np.exp(1j * phase), hop_length=preprocessing.HOP_LENGTH, n_fft=preprocessing.N_FFT)
 
-    if phase_viz:
-        plot_phase(phase, 44100, preprocessing.HOP_LENGTH)
-        plot_phase(initial_phase, 44100, preprocessing.HOP_LENGTH)
-
-    # Final reconstruction
-    normal = librosa.istft(magnitude_spectrogram * np.exp(1j * initial_phase), hop_length=preprocessing.HOP_LENGTH, n_fft=preprocessing.N_FFT)
-    return gl, normal
+    return gl
 
 def plot_phase(data, sr, hop_length):
     #print(data.shape)
@@ -112,17 +106,7 @@ def postprocess(mags, phases, visualize=True):
     combined_magnitudes, combined_phases = combine_spectrograms(mags, phases)
 
     # 7. Run ISTFT with modified griffin lim algorithm on the stitched spectrogram to get the output audio
-    #    |-> Modify griffin lim algorithm to use/start with the phase from the output of the model (should try with and without)
-    # 8. Write output audio to file
-    output_audio_gl, output_audio_normal = modified_griffin_lim(combined_magnitudes, combined_phases)
+    #    |-> Modify griffin lim algorithm to use/start with the phase from the output of the model 
+    output_audio_gl = modified_griffin_lim(combined_magnitudes, combined_phases)
 
-    reduce_gl = nr.reduce_noise(y=output_audio_gl, sr=44100, n_fft=preprocessing.N_FFT, hop_length=preprocessing.HOP_LENGTH)
-    reduce_normal = nr.reduce_noise(y=output_audio_normal, sr=44100, n_fft=preprocessing.N_FFT, hop_length=preprocessing.HOP_LENGTH)
-
-    if visualize:
-        compare_modifiedgl_to_single_istft(output_audio_gl, output_audio_normal)
-        compare_modifiedgl_to_single_istft(reduce_gl, reduce_normal)
-
-        
-
-    return output_audio_gl, output_audio_normal, reduce_gl, reduce_normal
+    return output_audio_gl
