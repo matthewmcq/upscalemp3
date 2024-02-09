@@ -24,15 +24,11 @@ def denormalize_with_given_min_max(arr, min_val, max_val, is_phase=False):
         arr = np.expm1(arr)  # inverse of log1p
     return arr
 
-
-
 def denormalize_data(pred_mag_norm, pred_phase_norm, mag_min_val, mag_max_val):
     # Denormalize magnitude
     pred_mag = denormalize_with_given_min_max(pred_mag_norm, mag_min_val, mag_max_val)
-
-    # Denormalize phase
+    
     pred_phase = denormalize_phase(pred_phase_norm)
-
     return pred_mag, pred_phase
 
 def normalize_with_given_min_max(arr, min_val, max_val, is_phase=False):
@@ -52,7 +48,7 @@ def denormalize_phase(arr):
     """Denormalize phase values from the range [0, 1] to [-π, π]."""
     return arr * 2 * np.pi - np.pi
 
-def normalize_data(combined_mp3, combined_wav, load_data=False):
+def normalize_data(combined_mp3):
     pred_min = np.min(combined_mp3[..., 0])
     pred_max = np.max(combined_mp3[..., 0])
 
@@ -61,4 +57,4 @@ def normalize_data(combined_mp3, combined_wav, load_data=False):
 
     pred_phase = normalize_phase(combined_mp3[..., 1])
 
-    return pred_mag, pred_phase
+    return pred_mag, pred_phase, pred_min, pred_max

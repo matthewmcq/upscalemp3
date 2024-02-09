@@ -10,7 +10,7 @@ import tqdm
 if not os.path.exists('coeffs'):
   os.makedirs('coeffs')
 
-# CONSTANTS
+# CONSTANTS -- MODEL ARCHITECTURE DEPENDS ON THESE => DO NOT CHANGE!
 N_FFT = 2048
 HOP_LENGTH = 256
 
@@ -19,41 +19,51 @@ HOP_LENGTH = 256
 #1. Split mp3 into 1 second chunks with 0.5 second overlap (if \in [1, 1.5]s, pad with zeros at beginning and end to 1.5 seconds)
     
 def split_audio(input_path, output_path):
-    # split audio into 1 second chunks with 0.5 second overlap
-    y, sr = librosa.load(input_path, sr=44100)
-    if len(y) > 44100 * 1.5:
-        # split into 1 second chunks with 0.5 second overlap
-        for i in range(0, len(y) - 44100, 44100 // 2):
-            sf.write(output_path + str(i) + '.wav', y[i:i+44100], sr)
-    elif len(y) < 44100:
-        # pad with zeros at beginning and end to 1 second
-        y = np.pad(y, (44100 - len(y), 44100 - len(y)), 'constant')
-        sf.write(output_path + '0.wav', y, sr)
+    # Load audio file in stereo
+    y, sr = librosa.load(input_path, sr=44100, mono=False)
+    # y has shape (2, num_samples) where y[0] is the left channel and y[1] is the right channel
+    
+    if y.shape[1] > 44100 * 1.5:
+        for i in range(0, y.shape[1] - 44100, 44100 // 2):
+            # Write both channels
+            sf.write(output_path + str(i) + '.wav', y[:, i:i+44100].T, sr)
+    elif y.shape[1] < 44100:
+        y = np.pad(y, ((0, 0), (44100 - y.shape[1], 44100 - y.shape[1])), 'constant')
+        sf.write(output_path + '0.wav', y.T, sr)
     else:
-        # do nothing
-        sf.write(output_path + '0.wav', y, sr)
+        sf.write(output_path + '0.wav', y.T, sr)
 
+# Helper function to extract the numerical part of the filename
+def extract_number(filename):
+    # Remove the file extension and convert to integer
+    return int(filename.split('.')[0])
 # 2. For each chunk, compute the STFT with hop len 512 and nfft 2048
         
 def get_spectrogram_segments(filepath_mp3, n_fft=N_FFT, hop_length=HOP_LENGTH):
-    
+    print("getting spectrogram segments")
     magnitudes = []
     phases = []
 
-    mp3_files = os.listdir(filepath_mp3)
+    # Get all .wav files and sort them by the numerical part of the filename
+    mp3_files = [f for f in os.listdir(filepath_mp3) if f.endswith('.wav')]
+    mp3_files.sort(key=extract_number)
     length = len(mp3_files)
 
-    for i, filename in tqdm.tqdm(enumerate(mp3_files), total=length, desc="Processing MP3 files"):
-        
-        audio = librosa.load(filepath_mp3 + filename, sr=44100)
-        S_mp3 = librosa.stft(audio, n_fft=n_fft, hop_length=hop_length)
-        magnitudes.append(np.abs(S_mp3))
-        phases.append(np.angle(S_mp3))
+    for filename in tqdm.tqdm(mp3_files, desc="Processing MP3 files"):
+        # Load the stereo file
+        audio, sr = librosa.load(os.path.join(filepath_mp3, filename), sr=44100, mono=False)
+        # Process each channel independently
+        for channel in range(audio.shape[0]):
+            S_mp3 = librosa.stft(audio[channel], n_fft=n_fft, hop_length=hop_length)
+            magnitudes.append(np.abs(S_mp3))
+            phases.append(np.angle(S_mp3))
         
     print("unifying dimensions")
+    # Assuming you have a function defined to unify dimensions of magnitude and phase
     magnitudes, phases = unify_dimensions(magnitudes, phases)
 
     return magnitudes, phases
+
 
 def unif_pad_array(arr, max_time, max_freq):
         time_pad_length = max_time - arr.shape[1]

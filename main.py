@@ -23,40 +23,67 @@
 #    |-> Modify griffin lim algorithm to use/start with the phase from the output of the model (should try with and without)
 # 8. Write output audio to file
 
-import librosa
 import numpy as np
-import os
 import tensorflow as tf
 import matplotlib.pyplot as plt
-import gc
 import soundfile as sf
-import tqdm
 import preprocessing
 import predict
 import postprocessing
-import normalize
 import sys
+
+
+
+# TODO - noise reduction?
+# Identify artifats (perhaps with std dev for magnitude coefficients, and ignore normalization for those)
+# Item - by item normalization (deal with batchnorm) or use moving average/minmax from original mp3
+
+def separate_channels(pred_mag, pred_phase):
+    # Assuming even indices are left channel and odd indices are right channel
+    pred_mag_left = pred_mag[::2]    # Slices out the left channel magnitudes
+    pred_phase_left = pred_phase[::2]  # Slices out the left channel phases
+
+    pred_mag_right = pred_mag[1::2]  # Slices out the right channel magnitudes
+    pred_phase_right = pred_phase[1::2]  # Slices out the right channel phases
+
+    return pred_mag_left, pred_phase_left, pred_mag_right, pred_phase_right
 
 if __name__ == "__main__":
 
-    MODEL_FILEPATH = 'models/model1'
+    MODEL_FILEPATH = 'models/ResUNet_LSTM_small3GB.keras'
     
-    # command line args 1 and 2 are the input and split filepaths
+    # command line args 1 and 2 are the input and output filepaths
     input_path = sys.argv[1]
     output_path = sys.argv[2]
 
     # preprocessing
+    print("Preprocessing")
     combined_mp3 = preprocessing.preprocess(input_path)
 
     # predict
-    prediction = predict.model_predict(combined_mp3, MODEL_FILEPATH)
+    print("Predicting")
+    mags, phases = predict.polyfit_and_predict(combined_mp3, MODEL_FILEPATH)
 
-    # postprocess
-    gl_audio, normal_audio = postprocessing.postprocess(prediction, visualize=True)
+    # Separate the predictions into left and right channels
+    pred_mag_left, pred_phase_left, pred_mag_right, pred_phase_right = separate_channels(mags, phases)
 
+    # postprocessing
+    print("Postprocessing")
+    output_audio_gl_left, output_audio_normal_left, reduce_gl_left, reduce_normal_left = postprocessing.postprocess(pred_mag_left, pred_phase_left, visualize=True)
+    output_audio_gl_right, output_audio_normal_right, reduce_gl_right, reduce_normal_right = postprocessing.postprocess(pred_mag_right, pred_phase_right, visualize=True)
+
+    # Combine the left and right channels into stereo
+    output_audio_gl_stereo = np.vstack((output_audio_gl_left, output_audio_gl_right)).T
+    output_audio_normal_stereo = np.vstack((output_audio_normal_left, output_audio_normal_right)).T
+    output_audio_reduce_gl_stereo = np.vstack((reduce_gl_left, reduce_gl_right)).T
+    output_audio_reduce_normal_stereo = np.vstack((reduce_normal_left, reduce_normal_right)).T
+    
     # Save both as wav files to output_path
-    sf.write(output_path + 'gl.wav', gl_audio, 44100)
-    sf.write(output_path + 'normal.wav', normal_audio, 44100)
+    print("Saving")
+    sf.write(output_path + 'reduce_gl.wav', output_audio_reduce_gl_stereo, 44100, "PCM_24")
+    sf.write(output_path + 'reduce_normal.wav', output_audio_reduce_normal_stereo, 44100, "PCM_24")
+    sf.write(output_path + 'gl.wav', output_audio_gl_stereo, 44100, "PCM_24")
+    sf.write(output_path + 'normal.wav', output_audio_normal_stereo, 44100, "PCM_24")
 
     
 

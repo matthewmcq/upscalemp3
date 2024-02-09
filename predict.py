@@ -7,7 +7,42 @@ import gc
 import soundfile as sf
 import tqdm
 import main
-import normalize
+import normalize_ 
+
+@tf.keras.saving.register_keras_serializable()
+class DynamicResizeLayer(tf.keras.layers.Layer):
+    def call(self, inputs, target_shape):
+        # Resize the input to the target shape
+        return tf.image.resize(inputs, size=(target_shape[1], target_shape[2]))
+    def get_config(self):
+        # Return an empty config dictionary since this layer has no configurable parameters
+        return {}
+
+@tf.keras.saving.register_keras_serializable()
+def log_spectral_distance():
+    @tf.keras.saving.register_keras_serializable()
+    def loss(y_true, y_pred):
+        # Extract the first channel for magnitude
+        y_true_mag = y_true[..., 0:1]
+        y_pred_mag = y_pred[..., 0:1]
+
+        # Calculate the difference per item
+        diff_per_item = y_true_mag - y_pred_mag
+
+        norm_per_item = tf.norm(diff_per_item, axis=[1, 2])
+
+        # Compute the mean of these norms
+        mean_norm = tf.reduce_mean(norm_per_item)
+
+        return mean_norm
+
+    return loss
+
+
+custom_objects = {
+    'DynamicResizeLayer': DynamicResizeLayer, # Used for residual encoder blocks
+    'log_spectral_distance': log_spectral_distance(), # custom loss function
+}
 
 def normalize(y):
     """Normalize a numpy array to the range [0, 1]."""
@@ -152,22 +187,34 @@ def polyfit_freq(combined_mp3, visualize=False):
     return harmonic_mp3
 
 def split_and_normalize(harmonic_mp3):
-    mag, phase = normalize.normalize_data(harmonic_mp3)
+    mag, phase, min, max = normalize_.normalize_data(harmonic_mp3)
     harmonic_mp3[..., 0] = mag
     harmonic_mp3[..., 1] = phase
+    return min, max
 
 def model_predict(harmonic_mp3, model_filepath):
     # 5. Plug in to model and get output
-    model = tf.keras.models.load_model(model_filepath)
-    model.summary()
-    pred = model.predict(harmonic_mp3)
-    return pred
+    with tf.keras.saving.custom_object_scope(custom_objects):
+        print("loading model...")
+        model = tf.keras.models.load_model(model_filepath, custom_objects=custom_objects, safe_mode=False) # safe_mode=False
+                                                                                                           # bc model uses Lambda layers
+        model.summary()
+        # print(harmonic_mp3.shape)
+        print("model.predict() -- can take a while...")
+        pred = model.predict(harmonic_mp3, batch_size=1, verbose=1) # batch_size=1 bc of weirdness with tf BatchNormalization(), as
+                                                                    # I trained with batch size of 1 for memory reasons and lo and behold
+                                                                    # I shot myself in the foot bc the learned BN parameters do not
+                                                                    # generalize to batch sizes more than 1... (sorry)
+        # print(pred.shape)
+        return pred
 
 def polyfit_and_predict(combined_mp3, model_filepath, visualize=False):
     print("polyfitting frequencies")
     harmonic_mp3 = polyfit_freq(combined_mp3, visualize=visualize)
     print("splitting and normalizing")
-    split_and_normalize(harmonic_mp3)
-    print("predicting")
+    min, max = split_and_normalize(harmonic_mp3)
+    print("predicting with model")
     pred = model_predict(harmonic_mp3, model_filepath)
-    return pred
+    print("denormalizing")
+    pred_mag, pred_phase = normalize_.denormalize_data(pred[..., 0], pred[..., 1], min, max)
+    return pred_mag, pred_phase
