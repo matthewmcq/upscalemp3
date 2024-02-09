@@ -69,21 +69,15 @@ if __name__ == "__main__":
 
     # postprocessing
     print("Postprocessing")
-    output_audio_gl_left, output_audio_normal_left, reduce_gl_left, reduce_normal_left = postprocessing.postprocess(pred_mag_left, pred_phase_left, visualize=True)
-    output_audio_gl_right, output_audio_normal_right, reduce_gl_right, reduce_normal_right = postprocessing.postprocess(pred_mag_right, pred_phase_right, visualize=True)
+    output_audio_gl_left = postprocessing.postprocess(pred_mag_left, pred_phase_left, visualize=True)
+    output_audio_gl_right = postprocessing.postprocess(pred_mag_right, pred_phase_right, visualize=True)
 
     # Combine the left and right channels into stereo
     output_audio_gl_stereo = np.vstack((output_audio_gl_left, output_audio_gl_right)).T
-    output_audio_normal_stereo = np.vstack((output_audio_normal_left, output_audio_normal_right)).T
-    output_audio_reduce_gl_stereo = np.vstack((reduce_gl_left, reduce_gl_right)).T
-    output_audio_reduce_normal_stereo = np.vstack((reduce_normal_left, reduce_normal_right)).T
     
     # Save both as wav files to output_path
     print("Saving")
-    sf.write(output_path + 'reduce_gl.wav', output_audio_reduce_gl_stereo, 44100, "PCM_24")
-    sf.write(output_path + 'reduce_normal.wav', output_audio_reduce_normal_stereo, 44100, "PCM_24")
-    sf.write(output_path + 'gl.wav', output_audio_gl_stereo, 44100, "PCM_24")
-    sf.write(output_path + 'normal.wav', output_audio_normal_stereo, 44100, "PCM_24")
+    sf.write(output_path + 'upscaled_mp3.wav', output_audio_gl_stereo, 44100, "PCM_24")
 
     
 
