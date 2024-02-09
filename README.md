@@ -8,7 +8,7 @@ Converts an mp3 (lossy) file back into its uncompressed wav counterpart based on
 2. These audio segments are transformed into their spectral composition using the (librosa) STFT and interleaved to support stereo.
 3. A polynomial regression is run on the magnitudes of each sample for every time step to roughly recover lost higher frequencies
 4. These augmented mp3 spectrograms are passed along with their corresponding wav spectrograms into a UNet-style neural network with residual
-   encoder blocks (U-ResNet) to clean up the polynomial regression and add more precision to magnitudes
+   encoder blocks (ResUNet) to clean up the polynomial regression and add more precision to magnitudes. Note: Phases are omitted from the model, as the Griffin-Lim algorithm does a better job (and because it cuts the size of the model in half).
 5. After training, the model predicts the missing spectrogram data from input mp3 audio segments and returns the ISTFT of the spectrogram
    encoded as a wav file at 44.1kHz.
 6. The overlapping interleaved segments are combined using OLA and a hanning window (this seems to be producing some artifacts based on the hard 1s splits in the original mp3, so I might experiment with using zero-cross cutting to minimize weirdness with the spectrograms) 
