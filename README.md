@@ -12,5 +12,5 @@ Converts an mp3 (lossy) file back into its uncompressed wav counterpart based on
 5. After training, the model predicts the missing spectrogram data from input mp3 audio segments and returns the ISTFT of the spectrogram
    encoded as a wav file at 44.1kHz.
 6. The overlapping interleaved segments are combined using OLA and a hanning window (this seems to be producing some artifacts based on the hard 1s splits in the original mp3, so I might experiment with using zero-cross cutting to minimize weirdness with the spectrograms) 
-7. Finally, each channel is run through a slightly modified Griffin-Lim algorithm to rebuild the correct phases. niter=200 by default, but this can  be super slow. That said, anything under 100 sounds noticible worse.
+7. Finally, each channel is run through a slightly modified Griffin-Lim algorithm to rebuild the correct phases. The algorithm runs for 200 iterations by default, but this can take a long time considering it happens once for each channel. That said, anything under 100 iterations sounds noticibly worse.
 8. The L and R channels are combined, and the output is encoded as a 24-bit PCM .wav file that gets written to the designated output filepath as "upscaled_mp3.wav"
