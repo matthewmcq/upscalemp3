@@ -50,7 +50,7 @@ def separate_channels(pred_mag, pred_phase):
 
 if __name__ == "__main__":
 
-    MODEL_FILEPATH = 'models/ResUNet_LSTM_small3GB.keras'
+    MODEL_FILEPATH = 'ResUNet_LSTM_small3GB.keras'
     
     # command line args 1 and 2 are the input and output filepaths
     input_path = sys.argv[1]
