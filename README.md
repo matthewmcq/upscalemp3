@@ -2,7 +2,7 @@
 
 Converts an mp3 (lossy) file back into its uncompressed wav counterpart based on a generative AI model built with tensorflow.
 
-## upscalemp3_training_and_preprocessing.ipynb:
+## Control Flow Outline:
 
 1. mp3 and corresponding wav audio files are broken into overlapping 1 second segements for training.
 2. These audio segments are transformed into their spectral composition using the (librosa) STFT and interleaved to support stereo.
